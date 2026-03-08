@@ -1,5 +1,5 @@
 'use client';
-import TodayCard from '@/components/dashboard/TodayCard';
+import WeekCard from '@/components/dashboard/WeekCard';
 import Stats from '@/components/dashboard/Stats';
 import CycleProgress from '@/components/dashboard/CycleProgress';
 import UpcomingSchedule from '@/components/dashboard/UpcomingSchedule';
@@ -17,7 +17,7 @@ export default function DashboardPage() {
       </div>
 
       <Stats />
-      <TodayCard />
+      <WeekCard />
       <CycleProgress />
       <UpcomingSchedule />
     </div>

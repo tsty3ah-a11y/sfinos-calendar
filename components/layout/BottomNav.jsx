@@ -1,7 +1,7 @@
 'use client';
 import Link from 'next/link';
 import { usePathname } from 'next/navigation';
-import { todayStr } from '@/lib/greek';
+import { todayStr, getMondayOfWeek } from '@/lib/greek';
 
 const tabs = [
   {
@@ -27,8 +27,8 @@ const tabs = [
     ),
   },
   {
-    label: 'Σήμερα',
-    href: `/day/${todayStr()}`,
+    label: 'Εβδομάδα',
+    href: `/week/${getMondayOfWeek(todayStr())}`,
     icon: (active) => (
       <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke={active ? 'var(--accent)' : 'var(--text-muted)'} strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
         <path d="M22 11.08V12a10 10 0 11-5.93-9.14" />
@@ -69,7 +69,9 @@ export default function BottomNav() {
         {tabs.map((tab) => {
           const isActive = tab.href === '/'
             ? pathname === '/'
-            : pathname.startsWith(tab.href);
+            : tab.label === 'Εβδομάδα'
+              ? pathname.startsWith('/week')
+              : pathname.startsWith(tab.href);
           return (
             <Link
               key={tab.href}

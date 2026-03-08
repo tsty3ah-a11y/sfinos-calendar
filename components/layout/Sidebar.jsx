@@ -1,12 +1,12 @@
 'use client';
 import Link from 'next/link';
 import { usePathname } from 'next/navigation';
-import { todayStr } from '@/lib/greek';
+import { todayStr, getMondayOfWeek } from '@/lib/greek';
 
 const navItems = [
   { label: 'Αρχική', href: '/', icon: '⌂' },
   { label: 'Ημερολόγιο', href: '/calendar', icon: '▦' },
-  { label: 'Σήμερα', href: `/day/${todayStr()}`, icon: '✓' },
+  { label: 'Εβδομάδα', href: `/week/${getMondayOfWeek(todayStr())}`, icon: '✓' },
   { label: 'Πελάτες', href: '/clients', icon: '◉' },
   { label: 'Ρυθμίσεις', href: '/settings', icon: '⚙' },
 ];
@@ -30,7 +30,9 @@ export default function Sidebar() {
         {navItems.map((item) => {
           const isActive = item.href === '/'
             ? pathname === '/'
-            : pathname.startsWith(item.href);
+            : item.label === 'Εβδομάδα'
+              ? pathname.startsWith('/week')
+              : pathname.startsWith(item.href);
           return (
             <Link
               key={item.href}

@@ -2,7 +2,7 @@
 import { useState, useMemo } from 'react';
 import { useRouter } from 'next/navigation';
 import { useMonthSchedule } from '@/hooks/useSchedule';
-import { MONTHS, DAYS_SHORT, todayStr } from '@/lib/greek';
+import { MONTHS, DAYS_SHORT, todayStr, getMondayOfWeek } from '@/lib/greek';
 
 export default function MonthGrid() {
   const today = new Date();
@@ -84,7 +84,7 @@ export default function MonthGrid() {
           return (
             <button
               key={dateStr}
-              onClick={() => router.push(`/day/${dateStr}`)}
+              onClick={() => router.push(`/week/${getMondayOfWeek(dateStr)}`)}
               className="relative flex flex-col items-center justify-center rounded-xl transition-all active:scale-90"
               style={{
                 aspectRatio: '1',

@@ -1,11 +1,11 @@
 'use client';
 import Link from 'next/link';
 import { useUpcoming } from '@/hooks/useSchedule';
-import { formatDayMonth, todayStr } from '@/lib/greek';
+import { formatWeekRange, todayStr, getMondayOfWeek } from '@/lib/greek';
 
 export default function UpcomingSchedule() {
-  const { upcoming, loading } = useUpcoming(7);
-  const today = todayStr();
+  const { upcoming, loading } = useUpcoming(60);
+  const thisMonday = getMondayOfWeek(todayStr());
 
   if (loading) {
     return (
@@ -16,24 +16,27 @@ export default function UpcomingSchedule() {
     );
   }
 
+  // Only show next 5 upcoming weeks (schedule entries are already on Mondays)
+  const upcomingWeeks = upcoming.slice(0, 5);
+
   return (
     <div className="card p-6 animate-fade-up" style={{ animationDelay: '0.2s' }}>
       <h3 className="text-sm font-bold uppercase tracking-widest mb-4" style={{ fontFamily: 'Sora, sans-serif', color: 'var(--text-muted)' }}>
-        Επόμενες Ημέρες
+        Επόμενες Εβδομάδες
       </h3>
 
-      {upcoming.length === 0 ? (
+      {upcomingWeeks.length === 0 ? (
         <p className="text-sm" style={{ color: 'var(--text-muted)' }}>Δεν υπάρχουν προγραμματισμένες</p>
       ) : (
         <div className="space-y-2">
-          {upcoming.map((s) => {
-            const isToday = s.visit_date === today;
+          {upcomingWeeks.map((s) => {
+            const isThisWeek = s.visit_date === thisMonday;
             return (
               <Link
                 key={s.id}
-                href={`/day/${s.visit_date}`}
+                href={`/week/${s.visit_date}`}
                 className="flex items-center gap-3 p-3 rounded-xl transition-all hover:scale-[1.01]"
-                style={{ background: isToday ? `${s.routes.color}10` : 'var(--bg-secondary)' }}
+                style={{ background: isThisWeek ? `${s.routes.color}10` : 'var(--bg-secondary)' }}
               >
                 <div
                   className="w-3 h-3 rounded-full flex-shrink-0"
@@ -44,7 +47,7 @@ export default function UpcomingSchedule() {
                     {s.routes.name}
                   </p>
                   <p className="text-xs" style={{ color: 'var(--text-muted)' }}>
-                    {isToday ? 'Σήμερα' : formatDayMonth(s.visit_date)}
+                    {isThisWeek ? 'Αυτή την εβδομάδα' : formatWeekRange(s.visit_date)}
                   </p>
                 </div>
                 <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="var(--text-muted)" strokeWidth="2">

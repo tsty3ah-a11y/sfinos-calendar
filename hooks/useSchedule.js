@@ -1,7 +1,7 @@
 'use client';
 import { useState, useEffect } from 'react';
-import { getSchedule, getDaySchedule, getScheduleRange } from '@/lib/queries';
-import { todayStr } from '@/lib/greek';
+import { getSchedule, getDaySchedule, getWeekSchedule, getScheduleRange } from '@/lib/queries';
+import { todayStr, getMondayOfWeek } from '@/lib/greek';
 
 export function useMonthSchedule(year, month) {
   const [schedule, setSchedule] = useState([]);
@@ -32,6 +32,22 @@ export function useDaySchedule(date) {
   }, [date]);
 
   return { daySchedule, loading };
+}
+
+export function useWeekSchedule(dateStr) {
+  const [weekSchedule, setWeekSchedule] = useState(null);
+  const [loading, setLoading] = useState(true);
+
+  useEffect(() => {
+    if (!dateStr) return;
+    setLoading(true);
+    getWeekSchedule(dateStr)
+      .then(setWeekSchedule)
+      .catch(console.error)
+      .finally(() => setLoading(false));
+  }, [dateStr]);
+
+  return { weekSchedule, loading };
 }
 
 export function useUpcoming(days = 5) {
