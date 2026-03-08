@@ -1,10 +1,11 @@
 'use client';
 import { use, useState, useEffect, useRef } from 'react';
 import { useRouter } from 'next/navigation';
-import { getClient, updateClientNotes, updateClientRoute, deleteClient } from '@/lib/queries';
+import { getClient, updateClientNotes, updateClientRoute, updateClientDetails, deleteClient } from '@/lib/queries';
 import { useRoutes } from '@/hooks/useRoutes';
 import { useClientVisits } from '@/hooks/useVisits';
 import { formatDateGreek } from '@/lib/greek';
+import ClientForm from '@/components/clients/ClientForm';
 
 export default function ClientDetailPage({ params }) {
   const { id } = use(params);
@@ -19,6 +20,10 @@ export default function ClientDetailPage({ params }) {
   const [notesValue, setNotesValue] = useState('');
   const [savingNotes, setSavingNotes] = useState(false);
   const notesRef = useRef(null);
+
+  // Edit mode
+  const [editing, setEditing] = useState(false);
+  const [savingEdit, setSavingEdit] = useState(false);
 
   // Move route
   const [showMoveMenu, setShowMoveMenu] = useState(false);
@@ -54,6 +59,31 @@ export default function ClientDetailPage({ params }) {
       console.error(e);
     }
     setSavingNotes(false);
+  }
+
+  async function handleEditSave(form) {
+    setSavingEdit(true);
+    try {
+      const updated = await updateClientDetails(id, {
+        name: form.name.trim(),
+        region: form.region.trim() || null,
+        address: form.address.trim() || null,
+        city: form.city.trim() || null,
+        phone: form.phone.trim() || null,
+        mobile: form.mobile.trim() || null,
+      });
+      // Also update notes if changed
+      if (form.notes.trim() !== (client.notes || '')) {
+        await updateClientNotes(id, form.notes.trim() || null);
+        updated.notes = form.notes.trim() || null;
+      }
+      setClient(updated);
+      setNotesValue(updated.notes || '');
+      setEditing(false);
+    } catch (e) {
+      console.error(e);
+    }
+    setSavingEdit(false);
   }
 
   async function handleMoveRoute(newRouteId) {
@@ -99,19 +129,60 @@ export default function ClientDetailPage({ params }) {
 
   const routeColor = client.routes?.color || 'var(--accent)';
 
+  // Edit mode — show the form
+  if (editing) {
+    return (
+      <div className="px-4 py-6 md:px-8 md:py-8 max-w-2xl mx-auto space-y-4 animate-fade-up">
+        <button
+          onClick={() => setEditing(false)}
+          className="flex items-center gap-2 text-sm font-medium mb-2 active:scale-95 transition-transform"
+          style={{ color: 'var(--text-secondary)' }}
+        >
+          <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+            <polyline points="15 18 9 12 15 6" />
+          </svg>
+          Πίσω
+        </button>
+        <div className="card p-5">
+          <h3 className="text-sm font-bold uppercase tracking-widest mb-4" style={{ color: 'var(--accent)', fontFamily: 'Sora, sans-serif' }}>
+            Επεξεργασία Πελάτη
+          </h3>
+          <ClientForm
+            initialData={client}
+            onSave={handleEditSave}
+            onCancel={() => setEditing(false)}
+            saving={savingEdit}
+          />
+        </div>
+      </div>
+    );
+  }
+
   return (
     <div className="px-4 py-6 md:px-8 md:py-8 max-w-2xl mx-auto space-y-4 animate-fade-up">
       {/* Back button */}
-      <button
-        onClick={() => router.back()}
-        className="flex items-center gap-2 text-sm font-medium mb-2 active:scale-95 transition-transform"
-        style={{ color: 'var(--text-secondary)' }}
-      >
-        <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
-          <polyline points="15 18 9 12 15 6" />
-        </svg>
-        Πίσω
-      </button>
+      <div className="flex items-center justify-between">
+        <button
+          onClick={() => router.back()}
+          className="flex items-center gap-2 text-sm font-medium active:scale-95 transition-transform"
+          style={{ color: 'var(--text-secondary)' }}
+        >
+          <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+            <polyline points="15 18 9 12 15 6" />
+          </svg>
+          Πίσω
+        </button>
+        <button
+          onClick={() => setEditing(true)}
+          className="flex items-center gap-1.5 px-3.5 py-2 rounded-xl text-xs font-bold active:scale-95 transition-all"
+          style={{ background: 'rgba(74,144,217,0.08)', color: 'var(--accent)' }}
+        >
+          <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+            <path d="M12 20h9" /><path d="M16.5 3.5a2.121 2.121 0 013 3L7 19l-4 1 1-4L16.5 3.5z" />
+          </svg>
+          Επεξεργασία
+        </button>
+      </div>
 
       {/* Client header */}
       <div className="card relative overflow-hidden p-6 pl-7">
@@ -247,7 +318,7 @@ export default function ClientDetailPage({ params }) {
             </div>
             <div className="flex-1">
               <p className="text-sm font-medium">{client.address}</p>
-              <p className="text-xs" style={{ color: 'var(--text-muted)' }}>Χάρτης →</p>
+              <p className="text-xs" style={{ color: 'var(--text-muted)' }}>Χάρτης</p>
             </div>
           </a>
         )}

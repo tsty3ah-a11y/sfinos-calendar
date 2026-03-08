@@ -17,7 +17,14 @@ export const viewport = {
 
 export default function RootLayout({ children }) {
   return (
-    <html lang="el">
+    <html lang="el" suppressHydrationWarning>
+      <head>
+        <script
+          dangerouslySetInnerHTML={{
+            __html: `try{if(localStorage.getItem('vetplan-dark')==='true')document.documentElement.classList.add('dark')}catch(e){}`,
+          }}
+        />
+      </head>
       <body className="antialiased">
         <Shell>{children}</Shell>
       </body>
