@@ -129,6 +129,14 @@ export default function DayChecklist({ date, routeId, routeColor }) {
                     <p className="text-xs truncate" style={{ color: 'var(--text-muted)' }}>
                       {client.address || client.city}
                     </p>
+                    {client.notes && (
+                      <p
+                        className="text-[11px] font-semibold mt-1 truncate"
+                        style={{ color: 'var(--warning)' }}
+                      >
+                        📝 {client.notes}
+                      </p>
+                    )}
                   </Link>
 
                   {/* Quick call */}

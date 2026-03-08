@@ -1,7 +1,8 @@
 'use client';
 import { use, useState, useEffect, useRef } from 'react';
 import { useRouter } from 'next/navigation';
-import { getClient, updateClientNotes } from '@/lib/queries';
+import { getClient, updateClientNotes, updateClientRoute, deleteClient } from '@/lib/queries';
+import { useRoutes } from '@/hooks/useRoutes';
 import { useClientVisits } from '@/hooks/useVisits';
 import { formatDateGreek } from '@/lib/greek';
 
@@ -11,12 +12,21 @@ export default function ClientDetailPage({ params }) {
   const [client, setClient] = useState(null);
   const [loading, setLoading] = useState(true);
   const { visits, loading: visitsLoading } = useClientVisits(id);
+  const { routes } = useRoutes();
 
-  // Notes editing
+  // Notes
   const [editingNotes, setEditingNotes] = useState(false);
   const [notesValue, setNotesValue] = useState('');
   const [savingNotes, setSavingNotes] = useState(false);
   const notesRef = useRef(null);
+
+  // Move route
+  const [showMoveMenu, setShowMoveMenu] = useState(false);
+  const [moving, setMoving] = useState(false);
+
+  // Delete
+  const [showDeleteConfirm, setShowDeleteConfirm] = useState(false);
+  const [deleting, setDeleting] = useState(false);
 
   useEffect(() => {
     getClient(id)
@@ -44,6 +54,29 @@ export default function ClientDetailPage({ params }) {
       console.error(e);
     }
     setSavingNotes(false);
+  }
+
+  async function handleMoveRoute(newRouteId) {
+    setMoving(true);
+    try {
+      const updated = await updateClientRoute(id, newRouteId);
+      setClient(updated);
+      setShowMoveMenu(false);
+    } catch (e) {
+      console.error(e);
+    }
+    setMoving(false);
+  }
+
+  async function handleDelete() {
+    setDeleting(true);
+    try {
+      await deleteClient(id);
+      router.push('/clients');
+    } catch (e) {
+      console.error(e);
+      setDeleting(false);
+    }
   }
 
   if (loading) {
@@ -104,7 +137,31 @@ export default function ClientDetailPage({ params }) {
         )}
       </div>
 
-      {/* Notes */}
+      {/* Notes - prominent yellow banner when they exist */}
+      {client.notes && !editingNotes && (
+        <div
+          className="rounded-xl p-4 flex items-start gap-3"
+          style={{ background: 'rgba(230,126,34,0.1)', border: '1px solid rgba(230,126,34,0.25)' }}
+        >
+          <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="var(--warning)" strokeWidth="2" className="flex-shrink-0 mt-0.5">
+            <path d="M12 20h9" /><path d="M16.5 3.5a2.121 2.121 0 013 3L7 19l-4 1 1-4L16.5 3.5z" />
+          </svg>
+          <div className="flex-1">
+            <p className="text-sm font-semibold whitespace-pre-wrap" style={{ color: 'var(--warning)' }}>
+              {client.notes}
+            </p>
+          </div>
+          <button
+            onClick={() => setEditingNotes(true)}
+            className="text-xs font-semibold px-2 py-1 rounded-lg flex-shrink-0 active:scale-95 transition-all"
+            style={{ color: 'var(--warning)', background: 'rgba(230,126,34,0.15)' }}
+          >
+            Αλλαγή
+          </button>
+        </div>
+      )}
+
+      {/* Notes editor (shown when editing or when no notes exist, collapsible) */}
       <div className="card p-5">
         <div className="flex items-center justify-between mb-3">
           <h3 className="text-xs font-bold uppercase tracking-widest" style={{ color: 'var(--text-muted)', fontFamily: 'Sora, sans-serif' }}>
@@ -144,7 +201,7 @@ export default function ClientDetailPage({ params }) {
             ref={notesRef}
             value={notesValue}
             onChange={(e) => setNotesValue(e.target.value)}
-            placeholder="Γράψτε σημειώσεις εδώ..."
+            placeholder="Γράψτε σημειώσεις εδώ... π.χ. ώρα ραντεβού, ειδικές οδηγίες"
             rows={4}
             className="w-full p-3 rounded-xl text-sm outline-none resize-none transition-all focus:ring-2"
             style={{
@@ -233,6 +290,50 @@ export default function ClientDetailPage({ params }) {
         )}
       </div>
 
+      {/* Move to another route */}
+      <div className="card p-5">
+        <div className="flex items-center justify-between mb-3">
+          <h3 className="text-xs font-bold uppercase tracking-widest" style={{ color: 'var(--text-muted)', fontFamily: 'Sora, sans-serif' }}>
+            Μετακίνηση Διαδρομής
+          </h3>
+          <button
+            onClick={() => setShowMoveMenu(!showMoveMenu)}
+            className="text-xs font-semibold px-2.5 py-1 rounded-lg active:scale-95 transition-all"
+            style={{ color: 'var(--accent)', background: 'rgba(74,144,217,0.08)' }}
+          >
+            {showMoveMenu ? 'Κλείσιμο' : 'Αλλαγή'}
+          </button>
+        </div>
+
+        <p className="text-sm mb-3" style={{ color: 'var(--text-secondary)' }}>
+          Τρέχουσα: <strong style={{ color: routeColor }}>{client.routes?.name}</strong>
+        </p>
+
+        {showMoveMenu && (
+          <div className="space-y-2">
+            {routes
+              .filter(r => r.id !== client.route_id)
+              .map(r => (
+                <button
+                  key={r.id}
+                  onClick={() => handleMoveRoute(r.id)}
+                  disabled={moving}
+                  className="w-full flex items-center gap-3 p-3 rounded-xl active:scale-[0.98] transition-all text-left"
+                  style={{ background: 'var(--bg-secondary)', opacity: moving ? 0.5 : 1 }}
+                >
+                  <div className="w-4 h-4 rounded-full flex-shrink-0" style={{ background: r.color }} />
+                  <span className="text-sm font-semibold" style={{ color: r.color }}>
+                    {r.name}
+                  </span>
+                  <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="var(--text-muted)" strokeWidth="2" className="ml-auto">
+                    <polyline points="9 18 15 12 9 6" />
+                  </svg>
+                </button>
+              ))}
+          </div>
+        )}
+      </div>
+
       {/* Visit history */}
       <div className="card p-5">
         <h3 className="text-xs font-bold uppercase tracking-widest mb-4" style={{ color: 'var(--text-muted)', fontFamily: 'Sora, sans-serif' }}>
@@ -279,6 +380,50 @@ export default function ClientDetailPage({ params }) {
                 </span>
               </div>
             ))}
+          </div>
+        )}
+      </div>
+
+      {/* Delete client - danger zone */}
+      <div className="card p-5" style={{ border: '1px solid rgba(231,76,60,0.2)' }}>
+        <h3 className="text-xs font-bold uppercase tracking-widest mb-3" style={{ color: 'var(--danger)', fontFamily: 'Sora, sans-serif' }}>
+          Ζώνη Κινδύνου
+        </h3>
+
+        {!showDeleteConfirm ? (
+          <button
+            onClick={() => setShowDeleteConfirm(true)}
+            className="w-full flex items-center justify-center gap-2 p-3 rounded-xl text-sm font-semibold active:scale-[0.98] transition-all"
+            style={{ background: 'rgba(231,76,60,0.08)', color: 'var(--danger)' }}
+          >
+            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+              <polyline points="3 6 5 6 21 6" />
+              <path d="M19 6v14a2 2 0 01-2 2H7a2 2 0 01-2-2V6m3 0V4a2 2 0 012-2h4a2 2 0 012 2v2" />
+            </svg>
+            Διαγραφή Πελάτη
+          </button>
+        ) : (
+          <div className="space-y-3">
+            <p className="text-sm text-center" style={{ color: 'var(--danger)' }}>
+              Είστε σίγουροι; Αυτή η ενέργεια δεν αναιρείται.
+            </p>
+            <div className="flex gap-2">
+              <button
+                onClick={() => setShowDeleteConfirm(false)}
+                className="flex-1 p-3 rounded-xl text-sm font-semibold active:scale-[0.98] transition-all"
+                style={{ background: 'var(--bg-secondary)', color: 'var(--text-secondary)' }}
+              >
+                Ακύρωση
+              </button>
+              <button
+                onClick={handleDelete}
+                disabled={deleting}
+                className="flex-1 p-3 rounded-xl text-sm font-bold active:scale-[0.98] transition-all"
+                style={{ background: 'var(--danger)', color: '#fff', opacity: deleting ? 0.6 : 1 }}
+              >
+                {deleting ? 'Διαγραφή...' : 'Ναι, Διαγραφή'}
+              </button>
+            </div>
           </div>
         )}
       </div>
