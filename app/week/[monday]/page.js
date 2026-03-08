@@ -2,7 +2,7 @@
 import { use } from 'react';
 import { useRouter } from 'next/navigation';
 import { useWeekSchedule } from '@/hooks/useSchedule';
-import { getMondayOfWeek, formatWeekRange } from '@/lib/greek';
+import { getMondayOfWeek, formatWeekRange, toDateStr } from '@/lib/greek';
 import DayChecklist from '@/components/visits/DayChecklist';
 
 export default function WeekViewPage({ params }) {
@@ -16,7 +16,7 @@ export default function WeekViewPage({ params }) {
   function goWeek(offset) {
     const d = new Date(monday + 'T00:00:00');
     d.setDate(d.getDate() + (7 * offset));
-    const newMonday = getMondayOfWeek(d.toISOString().split('T')[0]);
+    const newMonday = getMondayOfWeek(toDateStr(d));
     router.push(`/week/${newMonday}`);
   }
 
