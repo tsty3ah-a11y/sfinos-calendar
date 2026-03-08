@@ -24,6 +24,11 @@ export default function DayChecklist({ date, routeId, routeColor }) {
     return groups;
   }, [clients]);
 
+  // Clients with notes — shown as a banner at the top
+  const clientsWithNotes = useMemo(() => {
+    return clients.filter(c => c.notes);
+  }, [clients]);
+
   const totalClients = clients.length;
   const visitedCount = clients.filter(c => visitedIds.has(c.id)).length;
   const progress = totalClients ? Math.round((visitedCount / totalClients) * 100) : 0;
@@ -58,11 +63,6 @@ export default function DayChecklist({ date, routeId, routeColor }) {
       </div>
     );
   }
-
-  // Clients with notes — shown as a banner at the top
-  const clientsWithNotes = useMemo(() => {
-    return clients.filter(c => c.notes);
-  }, [clients]);
 
   return (
     <div className="space-y-4">
