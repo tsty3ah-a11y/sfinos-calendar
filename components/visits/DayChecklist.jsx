@@ -59,13 +59,36 @@ export default function DayChecklist({ date, routeId, routeColor }) {
     );
   }
 
+  // Clients with notes — shown as a banner at the top
+  const clientsWithNotes = useMemo(() => {
+    return clients.filter(c => c.notes);
+  }, [clients]);
+
   return (
     <div className="space-y-4">
+      {/* Notes banner at top */}
+      {clientsWithNotes.length > 0 && (
+        <div className="card p-4 space-y-2" style={{ background: 'var(--warning-bg, #FFF8E1)', border: '1px solid var(--warning, #F59E0B)' }}>
+          <div className="flex items-center gap-2 mb-1">
+            <span className="text-base">📝</span>
+            <span className="text-xs font-bold uppercase tracking-widest" style={{ color: 'var(--warning, #F59E0B)', fontFamily: 'Sora, sans-serif' }}>
+              Σημειώσεις
+            </span>
+          </div>
+          {clientsWithNotes.map(c => (
+            <Link key={c.id} href={`/clients/${c.id}`} className="flex items-start gap-2 py-1.5 px-2 rounded-lg transition-colors" style={{ background: 'rgba(245,158,11,0.08)' }}>
+              <span className="text-xs font-bold flex-shrink-0" style={{ color: routeColor }}>{c.name}:</span>
+              <span className="text-xs font-semibold" style={{ color: 'var(--text-primary)' }}>{c.notes}</span>
+            </Link>
+          ))}
+        </div>
+      )}
+
       {/* Progress header */}
       <div className="card p-4">
         <div className="flex items-center justify-between mb-2">
           <span className="text-xs font-bold uppercase tracking-widest" style={{ color: 'var(--text-muted)', fontFamily: 'Sora, sans-serif' }}>
-            Πρόοδος Ημέρας
+            Πρόοδος Εβδομάδας
           </span>
           <span className="text-sm font-bold tabular-nums" style={{ color: routeColor, fontFamily: 'Sora, sans-serif' }}>
             {visitedCount}/{totalClients}

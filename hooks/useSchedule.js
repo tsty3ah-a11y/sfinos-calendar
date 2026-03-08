@@ -50,18 +50,18 @@ export function useWeekSchedule(dateStr) {
   return { weekSchedule, loading };
 }
 
-export function useUpcoming(days = 5) {
+export function useUpcoming(days = 60) {
   const [upcoming, setUpcoming] = useState([]);
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
-    const today = new Date();
-    const end = new Date(today);
+    // Start from this week's Monday so current week is always included
+    const monday = getMondayOfWeek(todayStr());
+    const end = new Date(monday + 'T00:00:00');
     end.setDate(end.getDate() + days);
-    const startStr = todayStr();
-    const endStr = end.toISOString().split('T')[0];
+    const endStr = `${end.getFullYear()}-${String(end.getMonth() + 1).padStart(2, '0')}-${String(end.getDate()).padStart(2, '0')}`;
 
-    getScheduleRange(startStr, endStr)
+    getScheduleRange(monday, endStr)
       .then(setUpcoming)
       .catch(console.error)
       .finally(() => setLoading(false));

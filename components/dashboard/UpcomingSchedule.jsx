@@ -16,8 +16,8 @@ export default function UpcomingSchedule() {
     );
   }
 
-  // Only show next 5 upcoming weeks (schedule entries are already on Mondays)
-  const upcomingWeeks = upcoming.slice(0, 5);
+  // Skip current week (shown in WeekCard), show next 5
+  const upcomingWeeks = upcoming.filter(s => s.visit_date !== thisMonday).slice(0, 5);
 
   return (
     <div className="card p-6 animate-fade-up" style={{ animationDelay: '0.2s' }}>
