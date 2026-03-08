@@ -20,14 +20,24 @@ export default function ClientCard({ client, showRoute = true }) {
             {client.city}
             {client.address && ` · ${client.address}`}
           </p>
-          {showRoute && client.routes && (
-            <span
-              className="inline-block text-[10px] font-bold uppercase tracking-wider mt-2 px-2 py-0.5 rounded-md"
-              style={{ background: `${routeColor}15`, color: routeColor }}
-            >
-              {client.routes.name}
-            </span>
-          )}
+          <div className="flex items-center gap-2 mt-2 flex-wrap">
+            {showRoute && client.routes && (
+              <span
+                className="inline-block text-[10px] font-bold uppercase tracking-wider px-2 py-0.5 rounded-md"
+                style={{ background: `${routeColor}15`, color: routeColor }}
+              >
+                {client.routes.name}
+              </span>
+            )}
+            {client.notes && (
+              <span
+                className="inline-block text-[10px] font-bold uppercase tracking-wider px-2 py-0.5 rounded-md"
+                style={{ background: 'rgba(230,126,34,0.1)', color: 'var(--warning)' }}
+              >
+                Σημ.
+              </span>
+            )}
+          </div>
         </div>
 
         <div className="flex flex-col gap-1.5 flex-shrink-0">

@@ -1,7 +1,7 @@
 'use client';
-import { use, useState, useEffect } from 'react';
+import { use, useState, useEffect, useRef } from 'react';
 import { useRouter } from 'next/navigation';
-import { getClient } from '@/lib/queries';
+import { getClient, updateClientNotes } from '@/lib/queries';
 import { useClientVisits } from '@/hooks/useVisits';
 import { formatDateGreek } from '@/lib/greek';
 
@@ -12,12 +12,39 @@ export default function ClientDetailPage({ params }) {
   const [loading, setLoading] = useState(true);
   const { visits, loading: visitsLoading } = useClientVisits(id);
 
+  // Notes editing
+  const [editingNotes, setEditingNotes] = useState(false);
+  const [notesValue, setNotesValue] = useState('');
+  const [savingNotes, setSavingNotes] = useState(false);
+  const notesRef = useRef(null);
+
   useEffect(() => {
     getClient(id)
-      .then(setClient)
+      .then((c) => {
+        setClient(c);
+        setNotesValue(c.notes || '');
+      })
       .catch(console.error)
       .finally(() => setLoading(false));
   }, [id]);
+
+  useEffect(() => {
+    if (editingNotes && notesRef.current) {
+      notesRef.current.focus();
+    }
+  }, [editingNotes]);
+
+  async function saveNotes() {
+    setSavingNotes(true);
+    try {
+      const updated = await updateClientNotes(id, notesValue || null);
+      setClient(prev => ({ ...prev, notes: updated.notes }));
+      setEditingNotes(false);
+    } catch (e) {
+      console.error(e);
+    }
+    setSavingNotes(false);
+  }
 
   if (loading) {
     return (
@@ -57,7 +84,7 @@ export default function ClientDetailPage({ params }) {
       <div className="card relative overflow-hidden p-6 pl-7">
         <div className="route-strip" style={{ background: routeColor }} />
         <div
-          className="absolute -right-6 -top-6 w-32 h-32 rounded-full opacity-8"
+          className="absolute -right-6 -top-6 w-32 h-32 rounded-full"
           style={{ background: routeColor, opacity: 0.08 }}
         />
         <span
@@ -74,6 +101,70 @@ export default function ClientDetailPage({ params }) {
         )}
         {client.region && (
           <p className="text-xs mt-0.5" style={{ color: 'var(--text-muted)' }}>{client.region}</p>
+        )}
+      </div>
+
+      {/* Notes */}
+      <div className="card p-5">
+        <div className="flex items-center justify-between mb-3">
+          <h3 className="text-xs font-bold uppercase tracking-widest" style={{ color: 'var(--text-muted)', fontFamily: 'Sora, sans-serif' }}>
+            Σημειώσεις
+          </h3>
+          {!editingNotes ? (
+            <button
+              onClick={() => setEditingNotes(true)}
+              className="text-xs font-semibold px-2.5 py-1 rounded-lg active:scale-95 transition-all"
+              style={{ color: 'var(--accent)', background: 'rgba(74,144,217,0.08)' }}
+            >
+              {client.notes ? 'Επεξεργασία' : '+ Προσθήκη'}
+            </button>
+          ) : (
+            <div className="flex gap-2">
+              <button
+                onClick={() => { setEditingNotes(false); setNotesValue(client.notes || ''); }}
+                className="text-xs font-semibold px-2.5 py-1 rounded-lg active:scale-95 transition-all"
+                style={{ color: 'var(--text-muted)', background: 'var(--bg-secondary)' }}
+              >
+                Ακύρωση
+              </button>
+              <button
+                onClick={saveNotes}
+                disabled={savingNotes}
+                className="text-xs font-semibold px-2.5 py-1 rounded-lg active:scale-95 transition-all"
+                style={{ color: '#fff', background: 'var(--success)', opacity: savingNotes ? 0.6 : 1 }}
+              >
+                {savingNotes ? 'Αποθ...' : 'Αποθήκευση'}
+              </button>
+            </div>
+          )}
+        </div>
+
+        {editingNotes ? (
+          <textarea
+            ref={notesRef}
+            value={notesValue}
+            onChange={(e) => setNotesValue(e.target.value)}
+            placeholder="Γράψτε σημειώσεις εδώ..."
+            rows={4}
+            className="w-full p-3 rounded-xl text-sm outline-none resize-none transition-all focus:ring-2"
+            style={{
+              background: 'var(--bg-secondary)',
+              color: 'var(--text-primary)',
+              border: '1px solid var(--border)',
+              fontFamily: 'Manrope, sans-serif',
+            }}
+          />
+        ) : client.notes ? (
+          <div
+            className="p-3 rounded-xl text-sm whitespace-pre-wrap leading-relaxed"
+            style={{ background: 'var(--bg-secondary)', color: 'var(--text-primary)' }}
+          >
+            {client.notes}
+          </div>
+        ) : (
+          <p className="text-sm py-2" style={{ color: 'var(--text-muted)' }}>
+            Δεν υπάρχουν σημειώσεις
+          </p>
         )}
       </div>
 
