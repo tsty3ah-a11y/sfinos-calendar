@@ -1,15 +1,15 @@
 'use client';
 import { useState, useMemo } from 'react';
-import { useRouter } from 'next/navigation';
 import { useMonthSchedule } from '@/hooks/useSchedule';
-import { MONTHS, DAYS_SHORT, todayStr, getMondayOfWeek } from '@/lib/greek';
+import { useMonthAppointments } from '@/hooks/useAppointments';
+import { MONTHS, DAYS_SHORT, todayStr } from '@/lib/greek';
 
-export default function MonthGrid() {
+export default function MonthGrid({ onDaySelect, selectedDate }) {
   const today = new Date();
   const [year, setYear] = useState(today.getFullYear());
   const [month, setMonth] = useState(today.getMonth() + 1);
-  const { schedule, loading } = useMonthSchedule(year, month);
-  const router = useRouter();
+  const { schedule } = useMonthSchedule(year, month);
+  const { appointments } = useMonthAppointments(year, month);
   const todayString = todayStr();
 
   const scheduleMap = useMemo(() => {
@@ -18,12 +18,21 @@ export default function MonthGrid() {
     return map;
   }, [schedule]);
 
+  // Count appointments per day
+  const apptMap = useMemo(() => {
+    const map = {};
+    appointments.forEach(a => {
+      if (!map[a.appointment_date]) map[a.appointment_date] = [];
+      map[a.appointment_date].push(a);
+    });
+    return map;
+  }, [appointments]);
+
   const days = useMemo(() => {
     const firstDay = new Date(year, month - 1, 1);
     const lastDay = new Date(year, month, 0);
     const daysInMonth = lastDay.getDate();
 
-    // Monday=0 based offset
     let startOffset = firstDay.getDay() - 1;
     if (startOffset < 0) startOffset = 6;
 
@@ -77,56 +86,69 @@ export default function MonthGrid() {
 
           const dayNum = parseInt(dateStr.split('-')[2]);
           const entry = scheduleMap[dateStr];
+          const dayAppts = apptMap[dateStr] || [];
           const isToday = dateStr === todayString;
+          const isSelected = dateStr === selectedDate;
           const d = new Date(dateStr + 'T00:00:00');
           const isWeekend = d.getDay() === 0 || d.getDay() === 6;
 
           return (
             <button
               key={dateStr}
-              onClick={() => router.push(`/week/${getMondayOfWeek(dateStr)}`)}
+              onClick={() => onDaySelect?.(dateStr)}
               className="relative flex flex-col items-center justify-center rounded-xl transition-all active:scale-90"
               style={{
                 aspectRatio: '1',
-                background: entry ? `${entry.routes.color}15` : isToday ? 'var(--bg-secondary)' : 'transparent',
-                border: isToday ? '2px solid var(--accent)' : '2px solid transparent',
+                background: isSelected ? 'var(--accent)' : entry ? `${entry.routes.color}10` : isToday ? 'var(--bg-secondary)' : 'transparent',
+                border: isToday && !isSelected ? '2px solid var(--accent)' : '2px solid transparent',
               }}
             >
               <span
                 className="text-sm font-semibold tabular-nums"
                 style={{
                   fontFamily: 'Sora, sans-serif',
-                  color: entry ? entry.routes.color : isWeekend ? 'var(--text-muted)' : 'var(--text-primary)',
+                  color: isSelected ? '#fff' : isWeekend ? 'var(--text-muted)' : 'var(--text-primary)',
                 }}
               >
                 {dayNum}
               </span>
-              {entry && (
-                <div
-                  className="w-1.5 h-1.5 rounded-full mt-0.5"
-                  style={{ background: entry.routes.color }}
-                />
-              )}
+              {/* Dots row: route dot + appointment dots */}
+              <div className="flex gap-0.5 mt-0.5">
+                {entry && (
+                  <div
+                    className="w-1.5 h-1.5 rounded-full"
+                    style={{ background: isSelected ? '#fff' : entry.routes.color }}
+                  />
+                )}
+                {dayAppts.length > 0 && (
+                  <div
+                    className="w-1.5 h-1.5 rounded-full"
+                    style={{ background: isSelected ? '#fff' : 'var(--warning)' }}
+                  />
+                )}
+              </div>
             </button>
           );
         })}
       </div>
 
       {/* Legend */}
-      {loading ? (
-        <div className="mt-4 skeleton h-6 w-48" />
-      ) : (
-        <div className="flex flex-wrap gap-3 mt-6">
-          {[...new Map(schedule.map(s => [s.routes.name, s.routes])).values()].map(route => (
-            <div key={route.name} className="flex items-center gap-1.5">
-              <div className="w-2.5 h-2.5 rounded-full" style={{ background: route.color }} />
-              <span className="text-xs font-medium" style={{ color: 'var(--text-secondary)' }}>
-                {route.name}
-              </span>
-            </div>
-          ))}
+      <div className="flex flex-wrap gap-3 mt-6">
+        {[...new Map(schedule.map(s => [s.routes.name, s.routes])).values()].map(route => (
+          <div key={route.name} className="flex items-center gap-1.5">
+            <div className="w-2.5 h-2.5 rounded-full" style={{ background: route.color }} />
+            <span className="text-xs font-medium" style={{ color: 'var(--text-secondary)' }}>
+              {route.name}
+            </span>
+          </div>
+        ))}
+        <div className="flex items-center gap-1.5">
+          <div className="w-2.5 h-2.5 rounded-full" style={{ background: 'var(--warning)' }} />
+          <span className="text-xs font-medium" style={{ color: 'var(--text-secondary)' }}>
+            Ραντεβού
+          </span>
         </div>
-      )}
+      </div>
     </div>
   );
 }
