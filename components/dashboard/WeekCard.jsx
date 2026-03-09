@@ -4,6 +4,7 @@ import Link from 'next/link';
 import { useWeekSchedule } from '@/hooks/useSchedule';
 import { todayStr, getMondayOfWeek, formatWeekRange, DAYS_SHORT, toDateStr } from '@/lib/greek';
 import { getClientsWithNotes, getAppointmentsForWeek } from '@/lib/queries';
+import NotesBanner from '@/components/notes/NotesBanner';
 
 export default function WeekCard() {
   const today = todayStr();
@@ -113,25 +114,11 @@ export default function WeekCard() {
         </div>
       )}
 
-      {/* Notes for this week's route */}
-      {notes.length > 0 && (
-        <div className="card p-4" style={{ background: 'var(--warning-bg)', border: '1px solid var(--warning)' }}>
-          <div className="flex items-center gap-2 mb-2">
-            <span className="text-base">📝</span>
-            <span className="text-xs font-bold uppercase tracking-widest" style={{ color: 'var(--warning)', fontFamily: 'Sora, sans-serif' }}>
-              Σημειώσεις
-            </span>
-          </div>
-          <div className="space-y-1.5">
-            {notes.map(c => (
-              <Link key={c.id} href={`/clients/${c.id}`} className="flex items-start gap-2 py-1 px-2 rounded-lg" style={{ background: 'rgba(230,126,34,0.08)' }}>
-                <span className="text-xs font-bold flex-shrink-0" style={{ color: 'var(--text-primary)' }}>{c.name}:</span>
-                <span className="text-xs" style={{ color: 'var(--text-secondary)' }}>{c.notes}</span>
-              </Link>
-            ))}
-          </div>
-        </div>
-      )}
+      {/* Notes for this week's route — collapsible with read/dismiss */}
+      <NotesBanner
+        clients={notes}
+        routeColor={weekSchedule?.routes?.color || 'var(--accent)'}
+      />
     </div>
   );
 }
