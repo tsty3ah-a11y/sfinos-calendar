@@ -95,14 +95,17 @@ export async function GET() {
     );
     if (location) ics.push(`LOCATION:${location}`);
     if (description) ics.push(`DESCRIPTION:${escapeIcs(description)}`);
-    // Reminder: 30 min before
-    ics.push(
-      'BEGIN:VALARM',
-      'TRIGGER:-PT30M',
-      'ACTION:DISPLAY',
-      `DESCRIPTION:${summary}`,
-      'END:VALARM',
-    );
+    // Reminder
+    const reminderMin = appt.reminder_minutes ?? 30;
+    if (reminderMin > 0) {
+      ics.push(
+        'BEGIN:VALARM',
+        `TRIGGER:-PT${reminderMin}M`,
+        'ACTION:DISPLAY',
+        `DESCRIPTION:${summary}`,
+        'END:VALARM',
+      );
+    }
     ics.push('END:VEVENT');
   }
 

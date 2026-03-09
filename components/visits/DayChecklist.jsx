@@ -4,6 +4,7 @@ import Link from 'next/link';
 import { useClients } from '@/hooks/useClients';
 import { useVisitsForWeek } from '@/hooks/useVisits';
 import { DAYS_SHORT, todayStr, toDateStr } from '@/lib/greek';
+import { getAppointmentsForWeek } from '@/lib/queries';
 
 // Build array of 7 dates for Mon-Sun of the week
 function getWeekDays(monday) {
@@ -22,9 +23,18 @@ export default function DayChecklist({ date, routeId, routeColor }) {
   const [toggling, setToggling] = useState(null);
   const [pickerFor, setPickerFor] = useState(null); // clientId with open date picker
   const pickerRef = useRef(null);
+  const [appointments, setAppointments] = useState([]);
 
   const weekDays = useMemo(() => getWeekDays(date), [date]);
   const today = todayStr();
+
+  // Fetch appointments for this week
+  useEffect(() => {
+    if (!date) return;
+    getAppointmentsForWeek(date)
+      .then(setAppointments)
+      .catch(console.error);
+  }, [date]);
 
   // Map client_id -> visit info (date)
   const visitMap = useMemo(() => {
@@ -133,6 +143,44 @@ export default function DayChecklist({ date, routeId, routeColor }) {
 
   return (
     <div className="space-y-4">
+      {/* Appointments banner at top */}
+      {appointments.length > 0 && (
+        <div className="card p-4 space-y-2" style={{ border: '1px solid var(--accent)' }}>
+          <div className="flex items-center gap-2 mb-1">
+            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="var(--accent)" strokeWidth="2">
+              <rect x="3" y="4" width="18" height="18" rx="2" ry="2" /><line x1="16" y1="2" x2="16" y2="6" /><line x1="8" y1="2" x2="8" y2="6" /><line x1="3" y1="10" x2="21" y2="10" />
+            </svg>
+            <span className="text-xs font-bold uppercase tracking-widest" style={{ color: 'var(--accent)', fontFamily: 'Sora, sans-serif' }}>
+              Ραντεβού Εβδομάδας
+            </span>
+          </div>
+          {appointments.map(a => {
+            const d = new Date(a.appointment_date + 'T00:00:00');
+            const dayIdx = d.getDay() === 0 ? 6 : d.getDay() - 1;
+            return (
+              <Link
+                key={a.id}
+                href="/calendar"
+                className="flex items-center gap-2 py-1.5 px-2 rounded-lg"
+                style={{ background: 'rgba(74,144,217,0.06)' }}
+              >
+                <span className="text-[10px] font-bold px-1.5 py-0.5 rounded" style={{ background: 'var(--bg-secondary)', color: 'var(--accent)', fontFamily: 'Sora, sans-serif' }}>
+                  {DAYS_SHORT[dayIdx]} {d.getDate()}
+                </span>
+                {a.appointment_time && (
+                  <span className="text-[10px] font-bold" style={{ color: 'var(--text-muted)' }}>
+                    {a.appointment_time.slice(0, 5)}
+                  </span>
+                )}
+                <span className="text-xs font-semibold truncate flex-1" style={{ color: 'var(--text-primary)' }}>
+                  {a.title}
+                </span>
+              </Link>
+            );
+          })}
+        </div>
+      )}
+
       {/* Notes banner at top */}
       {clientsWithNotes.length > 0 && (
         <div className="card p-4 space-y-2" style={{ background: 'var(--warning-bg, #FFF8E1)', border: '1px solid var(--warning, #F59E0B)' }}>

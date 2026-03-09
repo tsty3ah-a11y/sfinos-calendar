@@ -42,6 +42,7 @@ export default function CalendarPage() {
         date: form.date,
         time: form.time || null,
         durationMinutes: form.durationMinutes,
+        reminderMinutes: form.reminderMinutes,
         notes: form.notes.trim() || null,
       });
       setShowAdd(false);
@@ -61,6 +62,7 @@ export default function CalendarPage() {
         date: form.date,
         time: form.time || null,
         durationMinutes: form.durationMinutes,
+        reminderMinutes: form.reminderMinutes,
         notes: form.notes.trim() || null,
       });
       setEditingAppt(null);

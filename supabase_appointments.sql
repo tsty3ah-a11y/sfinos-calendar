@@ -9,6 +9,7 @@ CREATE TABLE appointments (
   appointment_date DATE NOT NULL,
   appointment_time TIME,
   duration_minutes SMALLINT DEFAULT 30,
+  reminder_minutes SMALLINT DEFAULT 30,
   notes           TEXT,
   created_at      TIMESTAMPTZ NOT NULL DEFAULT now(),
   updated_at      TIMESTAMPTZ NOT NULL DEFAULT now()

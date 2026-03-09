@@ -9,6 +9,7 @@ export default function AppointmentForm({ initialData, initialDate, onSave, onCa
     date: initialData?.appointment_date || initialDate || '',
     time: initialData?.appointment_time?.slice(0, 5) || '',
     durationMinutes: initialData?.duration_minutes || 30,
+    reminderMinutes: initialData?.reminder_minutes ?? 30,
     clientId: initialData?.client_id || '',
     notes: initialData?.notes || '',
   });
@@ -112,6 +113,35 @@ export default function AppointmentForm({ initialData, initialDate, onSave, onCa
               }}
             >
               {d}&#39;
+            </button>
+          ))}
+        </div>
+      </div>
+
+      {/* Reminder */}
+      <div>
+        <label className="text-xs font-bold uppercase tracking-widest mb-1.5 block" style={{ color: 'var(--text-muted)', fontFamily: 'Sora, sans-serif' }}>
+          Υπενθύμιση
+        </label>
+        <div className="flex gap-2">
+          {[
+            { val: 0, label: 'Καμία' },
+            { val: 10, label: '10\'' },
+            { val: 30, label: '30\'' },
+            { val: 60, label: '1ω' },
+            { val: 1440, label: '1μ' },
+          ].map(r => (
+            <button
+              key={r.val}
+              type="button"
+              onClick={() => update('reminderMinutes', r.val)}
+              className="flex-1 py-2 rounded-xl text-xs font-bold transition-all"
+              style={{
+                background: form.reminderMinutes === r.val ? 'var(--warning)' : 'var(--bg-secondary)',
+                color: form.reminderMinutes === r.val ? '#fff' : 'var(--text-secondary)',
+              }}
+            >
+              {r.label}
             </button>
           ))}
         </div>
