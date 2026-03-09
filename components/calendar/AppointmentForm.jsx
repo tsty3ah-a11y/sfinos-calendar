@@ -77,9 +77,17 @@ export default function AppointmentForm({ initialData, initialDate, onSave, onCa
             Ώρα
           </label>
           <input
-            type="time"
+            type="text"
+            inputMode="numeric"
             value={form.time}
-            onChange={(e) => update('time', e.target.value)}
+            onChange={(e) => {
+              let v = e.target.value.replace(/[^\d:]/g, '');
+              // Auto-insert colon after 2 digits
+              if (v.length === 2 && !v.includes(':') && !form.time.endsWith(':')) v += ':';
+              if (v.length <= 5) update('time', v);
+            }}
+            placeholder="πχ 14:30"
+            maxLength={5}
             className="w-full p-3 rounded-xl text-sm outline-none transition-all focus:ring-2"
             style={{ background: 'var(--bg-secondary)', color: 'var(--text-primary)', border: '1px solid var(--border)' }}
           />
