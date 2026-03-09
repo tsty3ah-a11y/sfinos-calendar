@@ -67,6 +67,7 @@ export default function WeekViewPage({ params }) {
         </div>
       ) : weekSchedule?.routes ? (
         <DayChecklist
+          key={monday}
           date={monday}
           routeId={weekSchedule.routes.id}
           routeColor={weekSchedule.routes.color}

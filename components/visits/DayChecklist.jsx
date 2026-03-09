@@ -3,8 +3,8 @@ import { useState, useMemo, useRef, useEffect } from 'react';
 import Link from 'next/link';
 import { useClients } from '@/hooks/useClients';
 import { useVisitsForWeek } from '@/hooks/useVisits';
-import { DAYS_SHORT, todayStr, toDateStr } from '@/lib/greek';
-import { getAppointmentsForWeek } from '@/lib/queries';
+import { DAYS_SHORT, MONTHS_SHORT, todayStr, toDateStr } from '@/lib/greek';
+import { getAppointmentsForWeek, getLastVisitsForClients, getPreviousCycleVisits } from '@/lib/queries';
 
 // Build array of 7 dates for Mon-Sun of the week
 function getWeekDays(monday) {
@@ -24,6 +24,8 @@ export default function DayChecklist({ date, routeId, routeColor }) {
   const [pickerFor, setPickerFor] = useState(null); // clientId with open date picker
   const pickerRef = useRef(null);
   const [appointments, setAppointments] = useState([]);
+  const [lastVisitMap, setLastVisitMap] = useState({}); // client_id -> last visit date (from previous cycles)
+  const [prevCycle, setPrevCycle] = useState(null); // { monday, visitedCount, totalClients }
 
   const weekDays = useMemo(() => getWeekDays(date), [date]);
   const today = todayStr();
@@ -35,6 +37,23 @@ export default function DayChecklist({ date, routeId, routeColor }) {
       .then(setAppointments)
       .catch(console.error);
   }, [date]);
+
+  // Fetch last visit dates for each client (from previous cycles)
+  useEffect(() => {
+    if (!clients.length || !date || clientsLoading) return;
+    const clientIds = clients.map(c => c.id);
+    getLastVisitsForClients(clientIds, date)
+      .then(setLastVisitMap)
+      .catch(console.error);
+  }, [clients, date, clientsLoading]);
+
+  // Fetch previous cycle summary
+  useEffect(() => {
+    if (!routeId || !date) return;
+    getPreviousCycleVisits(routeId, date)
+      .then(setPrevCycle)
+      .catch(console.error);
+  }, [routeId, date]);
 
   // Map client_id -> visit info (date)
   const visitMap = useMemo(() => {
@@ -118,6 +137,12 @@ export default function DayChecklist({ date, routeId, routeColor }) {
     const d = new Date(dateStr + 'T00:00:00');
     const dayIdx = d.getDay() === 0 ? 6 : d.getDay() - 1;
     return `${DAYS_SHORT[dayIdx]} ${d.getDate()}`;
+  }
+
+  // Format a date for previous visit display: "5 Μαρ"
+  function formatShortDate(dateStr) {
+    const d = new Date(dateStr + 'T00:00:00');
+    return `${d.getDate()} ${MONTHS_SHORT[d.getMonth()]}`;
   }
 
   const loading = clientsLoading || visitsLoading;
@@ -212,6 +237,30 @@ export default function DayChecklist({ date, routeId, routeColor }) {
         <div className="progress-track">
           <div className="progress-fill" style={{ width: `${progress}%`, background: routeColor }} />
         </div>
+        {/* Previous cycle summary */}
+        {prevCycle && (
+          <div className="flex items-center gap-2 mt-3 pt-3" style={{ borderTop: '1px solid var(--border)' }}>
+            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="var(--text-muted)" strokeWidth="2">
+              <polyline points="1 4 1 10 7 10" /><path d="M3.51 15a9 9 0 1 0 2.13-9.36L1 10" />
+            </svg>
+            <span className="text-[11px] font-semibold" style={{ color: 'var(--text-muted)' }}>
+              Προηγ. κύκλος ({formatShortDate(prevCycle.monday)}):
+            </span>
+            <span className="text-[11px] font-bold tabular-nums" style={{ color: routeColor }}>
+              {prevCycle.visitedCount}/{prevCycle.totalClients}
+            </span>
+            <div className="flex-1 h-1.5 rounded-full" style={{ background: 'var(--bg-secondary)' }}>
+              <div
+                className="h-full rounded-full"
+                style={{
+                  width: `${prevCycle.totalClients ? Math.round((prevCycle.visitedCount / prevCycle.totalClients) * 100) : 0}%`,
+                  background: routeColor,
+                  opacity: 0.4,
+                }}
+              />
+            </div>
+          </div>
+        )}
       </div>
 
       {/* Client checklist grouped by city */}
@@ -269,10 +318,16 @@ export default function DayChecklist({ date, routeId, routeColor }) {
                       <p className="text-xs truncate" style={{ color: 'var(--text-muted)' }}>
                         {client.address || client.city}
                       </p>
-                      {/* Show visit date when visited */}
+                      {/* Show visit date when visited this week */}
                       {isVisited && (
                         <p className="text-[11px] font-bold mt-0.5" style={{ color: routeColor }}>
                           {formatVisitDate(visitDate)}
+                        </p>
+                      )}
+                      {/* Show last visit from previous cycle if not visited this week */}
+                      {!isVisited && lastVisitMap[client.id] && (
+                        <p className="text-[11px] mt-0.5" style={{ color: 'var(--text-muted)' }}>
+                          Τελ. επίσκεψη: {formatShortDate(lastVisitMap[client.id])}
                         </p>
                       )}
                       {client.notes && !isVisited && (
