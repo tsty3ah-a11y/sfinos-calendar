@@ -1,6 +1,6 @@
 'use client';
 import { useState, useEffect, useCallback } from 'react';
-import { getVisits, getVisitsForDate, toggleVisit } from '@/lib/queries';
+import { getVisits, getVisitsForDate, getVisitsForWeek, addVisit, removeVisit, toggleVisit } from '@/lib/queries';
 
 export function useVisitsForDate(date) {
   const [visits, setVisits] = useState([]);
@@ -23,6 +23,35 @@ export function useVisitsForDate(date) {
   }, [date, refresh]);
 
   return { visits, loading, toggle, refresh };
+}
+
+// Fetch all visits for a full week (Mon-Sun)
+export function useVisitsForWeek(monday) {
+  const [visits, setVisits] = useState([]);
+  const [loading, setLoading] = useState(true);
+
+  const refresh = useCallback(() => {
+    if (!monday) return;
+    setLoading(true);
+    getVisitsForWeek(monday)
+      .then(setVisits)
+      .catch(console.error)
+      .finally(() => setLoading(false));
+  }, [monday]);
+
+  useEffect(() => { refresh(); }, [refresh]);
+
+  const add = useCallback(async (clientId, date) => {
+    await addVisit(clientId, date);
+    refresh();
+  }, [refresh]);
+
+  const remove = useCallback(async (clientId, date) => {
+    await removeVisit(clientId, date);
+    refresh();
+  }, [refresh]);
+
+  return { visits, loading, add, remove, refresh };
 }
 
 export function useClientVisits(clientId) {

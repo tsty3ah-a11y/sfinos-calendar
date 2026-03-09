@@ -1,16 +1,38 @@
 'use client';
-import { useState, useEffect, useMemo } from 'react';
+import { useState, useMemo, useRef, useEffect } from 'react';
 import Link from 'next/link';
 import { useClients } from '@/hooks/useClients';
-import { useVisitsForDate } from '@/hooks/useVisits';
+import { useVisitsForWeek } from '@/hooks/useVisits';
+import { DAYS_SHORT, todayStr, toDateStr } from '@/lib/greek';
+
+// Build array of 7 dates for Mon-Sun of the week
+function getWeekDays(monday) {
+  const days = [];
+  for (let i = 0; i < 7; i++) {
+    const d = new Date(monday + 'T00:00:00');
+    d.setDate(d.getDate() + i);
+    days.push(toDateStr(d));
+  }
+  return days;
+}
 
 export default function DayChecklist({ date, routeId, routeColor }) {
   const { clients, loading: clientsLoading } = useClients({ routeId });
-  const { visits, loading: visitsLoading, toggle } = useVisitsForDate(date);
+  const { visits, loading: visitsLoading, add, remove } = useVisitsForWeek(date);
   const [toggling, setToggling] = useState(null);
+  const [pickerFor, setPickerFor] = useState(null); // clientId with open date picker
+  const pickerRef = useRef(null);
 
-  const visitedIds = useMemo(() => {
-    return new Set(visits.map(v => v.client_id));
+  const weekDays = useMemo(() => getWeekDays(date), [date]);
+  const today = todayStr();
+
+  // Map client_id -> visit info (date)
+  const visitMap = useMemo(() => {
+    const map = {};
+    visits.forEach(v => {
+      map[v.client_id] = v.visit_date;
+    });
+    return map;
   }, [visits]);
 
   // Group clients by city
@@ -24,23 +46,68 @@ export default function DayChecklist({ date, routeId, routeColor }) {
     return groups;
   }, [clients]);
 
-  // Clients with notes — shown as a banner at the top
+  // Clients with notes
   const clientsWithNotes = useMemo(() => {
     return clients.filter(c => c.notes);
   }, [clients]);
 
   const totalClients = clients.length;
-  const visitedCount = clients.filter(c => visitedIds.has(c.id)).length;
+  const visitedCount = clients.filter(c => visitMap[c.id]).length;
   const progress = totalClients ? Math.round((visitedCount / totalClients) * 100) : 0;
 
-  async function handleToggle(clientId) {
+  // Close picker on outside click
+  useEffect(() => {
+    if (!pickerFor) return;
+    function handleClick(e) {
+      if (pickerRef.current && !pickerRef.current.contains(e.target)) {
+        setPickerFor(null);
+      }
+    }
+    document.addEventListener('mousedown', handleClick);
+    document.addEventListener('touchstart', handleClick);
+    return () => {
+      document.removeEventListener('mousedown', handleClick);
+      document.removeEventListener('touchstart', handleClick);
+    };
+  }, [pickerFor]);
+
+  function handleCheckClick(clientId) {
+    const existingDate = visitMap[clientId];
+    if (existingDate) {
+      // Already visited — uncheck immediately
+      handleRemove(clientId, existingDate);
+    } else {
+      // Open date picker
+      setPickerFor(pickerFor === clientId ? null : clientId);
+    }
+  }
+
+  async function handleAdd(clientId, visitDate) {
     setToggling(clientId);
+    setPickerFor(null);
     try {
-      await toggle(clientId);
+      await add(clientId, visitDate);
     } catch (e) {
       console.error(e);
     }
     setToggling(null);
+  }
+
+  async function handleRemove(clientId, visitDate) {
+    setToggling(clientId);
+    try {
+      await remove(clientId, visitDate);
+    } catch (e) {
+      console.error(e);
+    }
+    setToggling(null);
+  }
+
+  // Format visit date as short day name + date number
+  function formatVisitDate(dateStr) {
+    const d = new Date(dateStr + 'T00:00:00');
+    const dayIdx = d.getDay() === 0 ? 6 : d.getDay() - 1;
+    return `${DAYS_SHORT[dayIdx]} ${d.getDate()}`;
   }
 
   const loading = clientsLoading || visitsLoading;
@@ -110,84 +177,127 @@ export default function DayChecklist({ date, routeId, routeColor }) {
           </h4>
           <div className="space-y-1.5">
             {cityClients.map(client => {
-              const isVisited = visitedIds.has(client.id);
+              const visitDate = visitMap[client.id];
+              const isVisited = !!visitDate;
               const isToggling = toggling === client.id;
+              const showPicker = pickerFor === client.id;
 
               return (
-                <div
-                  key={client.id}
-                  className="card relative flex items-center gap-3 p-3.5 pl-5 transition-all"
-                  style={{
-                    opacity: isToggling ? 0.6 : 1,
-                    background: isVisited ? `${routeColor}08` : 'var(--bg-card)',
-                  }}
-                >
-                  <div className="route-strip" style={{ background: routeColor, opacity: isVisited ? 1 : 0.2 }} />
-
-                  {/* Check button */}
-                  <button
-                    onClick={() => handleToggle(client.id)}
-                    disabled={isToggling}
-                    className="visit-check"
-                    style={isVisited ? { borderColor: routeColor, background: routeColor } : {}}
+                <div key={client.id}>
+                  <div
+                    className="card relative flex items-center gap-3 p-3.5 pl-5 transition-all"
+                    style={{
+                      opacity: isToggling ? 0.6 : 1,
+                      background: isVisited ? `${routeColor}08` : 'var(--bg-card)',
+                    }}
                   >
-                    {isVisited && (
-                      <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="#fff" strokeWidth="3">
-                        <polyline points="20 6 9 17 4 12" />
-                      </svg>
-                    )}
-                  </button>
+                    <div className="route-strip" style={{ background: routeColor, opacity: isVisited ? 1 : 0.2 }} />
 
-                  {/* Client info */}
-                  <Link href={`/clients/${client.id}`} className="flex-1 min-w-0">
-                    <p
-                      className="text-sm font-semibold truncate"
-                      style={{
-                        textDecoration: isVisited ? 'line-through' : 'none',
-                        color: isVisited ? 'var(--text-muted)' : 'var(--text-primary)',
-                      }}
+                    {/* Check button */}
+                    <button
+                      onClick={() => handleCheckClick(client.id)}
+                      disabled={isToggling}
+                      className="visit-check"
+                      style={isVisited ? { borderColor: routeColor, background: routeColor } : {}}
                     >
-                      {client.name}
-                    </p>
-                    <p className="text-xs truncate" style={{ color: 'var(--text-muted)' }}>
-                      {client.address || client.city}
-                    </p>
-                    {client.notes && (
-                      <p
-                        className="text-[11px] font-semibold mt-1 truncate"
-                        style={{ color: 'var(--warning)' }}
-                      >
-                        📝 {client.notes}
-                      </p>
-                    )}
-                  </Link>
+                      {isVisited && (
+                        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="#fff" strokeWidth="3">
+                          <polyline points="20 6 9 17 4 12" />
+                        </svg>
+                      )}
+                    </button>
 
-                  {/* Quick call */}
-                  <div className="flex gap-1.5 flex-shrink-0">
-                    {client.phone && (
-                      <a
-                        href={`tel:${client.phone.replace(/\s/g, '')}`}
-                        className="flex items-center justify-center w-9 h-9 rounded-lg active:scale-90 transition-transform"
-                        style={{ background: 'var(--bg-secondary)' }}
+                    {/* Client info */}
+                    <Link href={`/clients/${client.id}`} className="flex-1 min-w-0">
+                      <p
+                        className="text-sm font-semibold truncate"
+                        style={{
+                          textDecoration: isVisited ? 'line-through' : 'none',
+                          color: isVisited ? 'var(--text-muted)' : 'var(--text-primary)',
+                        }}
                       >
-                        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="var(--accent)" strokeWidth="2.5">
-                          <path d="M22 16.92v3a2 2 0 01-2.18 2 19.79 19.79 0 01-8.63-3.07 19.5 19.5 0 01-6-6 19.79 19.79 0 01-3.07-8.67A2 2 0 014.11 2h3a2 2 0 012 1.72c.127.96.361 1.903.7 2.81a2 2 0 01-.45 2.11L8.09 9.91a16 16 0 006 6l1.27-1.27a2 2 0 012.11-.45c.907.339 1.85.573 2.81.7A2 2 0 0122 16.92z" />
-                        </svg>
-                      </a>
-                    )}
-                    {client.mobile && (
-                      <a
-                        href={`tel:${client.mobile.replace(/[\s\/;].*/g, '').replace(/\s/g, '')}`}
-                        className="flex items-center justify-center w-9 h-9 rounded-lg active:scale-90 transition-transform"
-                        style={{ background: `${routeColor}12` }}
-                      >
-                        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke={routeColor} strokeWidth="2.5">
-                          <rect x="5" y="2" width="14" height="20" rx="2" ry="2" />
-                          <line x1="12" y1="18" x2="12.01" y2="18" />
-                        </svg>
-                      </a>
-                    )}
+                        {client.name}
+                      </p>
+                      <p className="text-xs truncate" style={{ color: 'var(--text-muted)' }}>
+                        {client.address || client.city}
+                      </p>
+                      {/* Show visit date when visited */}
+                      {isVisited && (
+                        <p className="text-[11px] font-bold mt-0.5" style={{ color: routeColor }}>
+                          {formatVisitDate(visitDate)}
+                        </p>
+                      )}
+                      {client.notes && !isVisited && (
+                        <p
+                          className="text-[11px] font-semibold mt-1 truncate"
+                          style={{ color: 'var(--warning)' }}
+                        >
+                          📝 {client.notes}
+                        </p>
+                      )}
+                    </Link>
+
+                    {/* Quick call */}
+                    <div className="flex gap-1.5 flex-shrink-0">
+                      {client.phone && (
+                        <a
+                          href={`tel:${client.phone.replace(/\s/g, '')}`}
+                          className="flex items-center justify-center w-9 h-9 rounded-lg active:scale-90 transition-transform"
+                          style={{ background: 'var(--bg-secondary)' }}
+                        >
+                          <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="var(--accent)" strokeWidth="2.5">
+                            <path d="M22 16.92v3a2 2 0 01-2.18 2 19.79 19.79 0 01-8.63-3.07 19.5 19.5 0 01-6-6 19.79 19.79 0 01-3.07-8.67A2 2 0 014.11 2h3a2 2 0 012 1.72c.127.96.361 1.903.7 2.81a2 2 0 01-.45 2.11L8.09 9.91a16 16 0 006 6l1.27-1.27a2 2 0 012.11-.45c.907.339 1.85.573 2.81.7A2 2 0 0122 16.92z" />
+                          </svg>
+                        </a>
+                      )}
+                      {client.mobile && (
+                        <a
+                          href={`tel:${client.mobile.replace(/[\s\/;].*/g, '').replace(/\s/g, '')}`}
+                          className="flex items-center justify-center w-9 h-9 rounded-lg active:scale-90 transition-transform"
+                          style={{ background: `${routeColor}12` }}
+                        >
+                          <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke={routeColor} strokeWidth="2.5">
+                            <rect x="5" y="2" width="14" height="20" rx="2" ry="2" />
+                            <line x1="12" y1="18" x2="12.01" y2="18" />
+                          </svg>
+                        </a>
+                      )}
+                    </div>
                   </div>
+
+                  {/* Date picker - slides down below the card */}
+                  {showPicker && (
+                    <div ref={pickerRef} className="card p-3 mt-1 animate-fade-up" style={{ border: `1px solid ${routeColor}40` }}>
+                      <p className="text-[11px] font-bold uppercase tracking-widest mb-2 text-center" style={{ color: 'var(--text-muted)', fontFamily: 'Sora, sans-serif' }}>
+                        Ημερομηνία επίσκεψης
+                      </p>
+                      <div className="grid grid-cols-7 gap-1.5">
+                        {weekDays.map((dayDate, i) => {
+                          const d = new Date(dayDate + 'T00:00:00');
+                          const isToday = dayDate === today;
+                          return (
+                            <button
+                              key={dayDate}
+                              type="button"
+                              onClick={() => handleAdd(client.id, dayDate)}
+                              className="flex flex-col items-center py-2 px-1 rounded-xl transition-all active:scale-90"
+                              style={{
+                                background: isToday ? `${routeColor}15` : 'var(--bg-secondary)',
+                                border: isToday ? `2px solid ${routeColor}` : '2px solid transparent',
+                              }}
+                            >
+                              <span className="text-[10px] font-bold uppercase" style={{ color: 'var(--text-muted)', fontFamily: 'Sora, sans-serif' }}>
+                                {DAYS_SHORT[i]}
+                              </span>
+                              <span className="text-sm font-bold mt-0.5" style={{ color: isToday ? routeColor : 'var(--text-primary)' }}>
+                                {d.getDate()}
+                              </span>
+                            </button>
+                          );
+                        })}
+                      </div>
+                    </div>
+                  )}
                 </div>
               );
             })}
