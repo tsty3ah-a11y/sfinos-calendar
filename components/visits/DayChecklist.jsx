@@ -83,7 +83,8 @@ export default function DayChecklist({ date, routeId, routeColor }) {
 
   const totalClients = clients.length;
   const visitedCount = clients.filter(c => visitMap[c.id]?.status === 'completed').length;
-  const partialCount = clients.filter(c => visitMap[c.id]?.status === 'partial').length;
+  const partialClients = clients.filter(c => visitMap[c.id]?.status === 'partial');
+  const partialCount = partialClients.length;
   const progress = totalClients ? Math.round((visitedCount / totalClients) * 100) : 0;
 
   // Close picker on outside click
@@ -286,6 +287,36 @@ export default function DayChecklist({ date, routeId, routeColor }) {
         )}
       </div>
 
+      {/* Partial visits summary */}
+      {partialCount > 0 && (
+        <div className="card p-4" style={{ border: '1.5px solid var(--warning, #F59E0B)', background: 'rgba(245,158,11,0.06)' }}>
+          <div className="flex items-center gap-2 mb-2">
+            <span
+              className="text-[10px] font-bold uppercase tracking-wider px-2 py-0.5 rounded"
+              style={{ background: 'var(--warning, #F59E0B)', color: '#fff', fontFamily: 'Sora, sans-serif' }}
+            >
+              ΕΚΚΡΕΜΟΥΝ
+            </span>
+            <span className="text-xs font-bold" style={{ color: 'var(--warning, #F59E0B)', fontFamily: 'Sora, sans-serif' }}>
+              {partialCount} επισκέψ{partialCount === 1 ? 'η' : 'εις'}
+            </span>
+          </div>
+          <div className="space-y-1">
+            {partialClients.map(c => (
+              <div key={c.id} className="flex items-center gap-2">
+                <div className="w-1.5 h-1.5 rounded-full" style={{ background: 'var(--warning, #F59E0B)' }} />
+                <span className="text-xs font-semibold truncate" style={{ color: 'var(--text-primary)' }}>
+                  {c.name}
+                </span>
+                <span className="text-[10px] font-bold ml-auto flex-shrink-0" style={{ color: 'var(--warning, #F59E0B)' }}>
+                  {formatVisitDate(visitMap[c.id].date)}
+                </span>
+              </div>
+            ))}
+          </div>
+        </div>
+      )}
+
       {/* Client checklist grouped by city */}
       {Object.entries(grouped).map(([city, cityClients]) => (
         <div key={city}>
@@ -313,8 +344,9 @@ export default function DayChecklist({ date, routeId, routeColor }) {
                       background: isCompleted
                         ? `${routeColor}08`
                         : isPartial
-                          ? 'rgba(245,158,11,0.04)'
+                          ? 'rgba(245,158,11,0.10)'
                           : 'var(--bg-card)',
+                      border: isPartial ? '1.5px solid var(--warning, #F59E0B)' : undefined,
                     }}
                   >
                     <div
@@ -322,6 +354,7 @@ export default function DayChecklist({ date, routeId, routeColor }) {
                       style={{
                         background: isPartial ? 'var(--warning, #F59E0B)' : routeColor,
                         opacity: hasVisit ? 1 : 0.2,
+                        width: isPartial ? '5px' : undefined,
                       }}
                     />
 
@@ -385,9 +418,17 @@ export default function DayChecklist({ date, routeId, routeColor }) {
                         </p>
                       )}
                       {isPartial && (
-                        <p className="text-[11px] font-bold mt-0.5" style={{ color: 'var(--warning, #F59E0B)' }}>
-                          {formatVisitDate(visit.date)} — εκκρεμεί
-                        </p>
+                        <div className="flex items-center gap-1.5 mt-1">
+                          <span
+                            className="text-[10px] font-bold uppercase tracking-wider px-1.5 py-0.5 rounded"
+                            style={{ background: 'var(--warning, #F59E0B)', color: '#fff', fontFamily: 'Sora, sans-serif' }}
+                          >
+                            ΕΚΚΡΕΜΕΙ
+                          </span>
+                          <span className="text-[11px] font-bold" style={{ color: 'var(--warning, #F59E0B)' }}>
+                            {formatVisitDate(visit.date)}
+                          </span>
+                        </div>
                       )}
                       {/* Show last visit from previous cycle if not visited this week */}
                       {!hasVisit && lastVisitMap[client.id] && (
