@@ -1,16 +1,20 @@
 'use client';
-import { useState, useEffect, useCallback } from 'react';
+import { useState, useEffect, useCallback, useRef } from 'react';
 import { getVisits, getVisitsForDate, getVisitsForWeek, addVisit, removeVisit, toggleVisit, updateVisitStatus } from '@/lib/queries';
 
 export function useVisitsForDate(date) {
   const [visits, setVisits] = useState([]);
   const [loading, setLoading] = useState(true);
+  const hasFetched = useRef(false);
 
   const refresh = useCallback(() => {
     if (!date) return;
-    setLoading(true);
+    if (!hasFetched.current) setLoading(true);
     getVisitsForDate(date)
-      .then(setVisits)
+      .then(data => {
+        setVisits(data);
+        hasFetched.current = true;
+      })
       .catch(console.error)
       .finally(() => setLoading(false));
   }, [date]);
@@ -29,12 +33,16 @@ export function useVisitsForDate(date) {
 export function useVisitsForWeek(monday) {
   const [visits, setVisits] = useState([]);
   const [loading, setLoading] = useState(true);
+  const hasFetched = useRef(false);
 
   const refresh = useCallback(() => {
     if (!monday) return;
-    setLoading(true);
+    if (!hasFetched.current) setLoading(true);
     getVisitsForWeek(monday)
-      .then(setVisits)
+      .then(data => {
+        setVisits(data);
+        hasFetched.current = true;
+      })
       .catch(console.error)
       .finally(() => setLoading(false));
   }, [monday]);

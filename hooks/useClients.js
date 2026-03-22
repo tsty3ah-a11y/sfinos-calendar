@@ -1,15 +1,19 @@
 'use client';
-import { useState, useEffect, useCallback } from 'react';
+import { useState, useEffect, useCallback, useRef } from 'react';
 import { getClients, getCities } from '@/lib/queries';
 
 export function useClients({ routeId, city, search } = {}) {
   const [clients, setClients] = useState([]);
   const [loading, setLoading] = useState(true);
+  const hasFetched = useRef(false);
 
   const refresh = useCallback(() => {
-    setLoading(true);
+    if (!hasFetched.current) setLoading(true);
     getClients({ routeId, city, search })
-      .then(setClients)
+      .then(data => {
+        setClients(data);
+        hasFetched.current = true;
+      })
       .catch(console.error)
       .finally(() => setLoading(false));
   }, [routeId, city, search]);
