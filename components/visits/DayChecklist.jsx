@@ -20,9 +20,9 @@ function getWeekDays(monday) {
 
 export default function DayChecklist({ date, routeId, routeColor }) {
   const { clients, loading: clientsLoading } = useClients({ routeId });
-  const { visits, loading: visitsLoading, add, remove } = useVisitsForWeek(date);
+  const { visits, loading: visitsLoading, add, remove, updateStatus } = useVisitsForWeek(date);
   const [toggling, setToggling] = useState(null);
-  const [pickerFor, setPickerFor] = useState(null); // clientId with open date picker
+  const [pickerFor, setPickerFor] = useState(null); // { clientId, status }
   const pickerRef = useRef(null);
   const [appointments, setAppointments] = useState([]);
   const [lastVisitMap, setLastVisitMap] = useState({}); // client_id -> last visit date (from previous cycles)
@@ -56,11 +56,11 @@ export default function DayChecklist({ date, routeId, routeColor }) {
       .catch(console.error);
   }, [routeId, date]);
 
-  // Map client_id -> visit info (date)
+  // Map client_id -> visit info { date, status }
   const visitMap = useMemo(() => {
     const map = {};
     visits.forEach(v => {
-      map[v.client_id] = v.visit_date;
+      map[v.client_id] = { date: v.visit_date, status: v.status || 'completed' };
     });
     return map;
   }, [visits]);
@@ -82,7 +82,8 @@ export default function DayChecklist({ date, routeId, routeColor }) {
   }, [clients]);
 
   const totalClients = clients.length;
-  const visitedCount = clients.filter(c => visitMap[c.id]).length;
+  const visitedCount = clients.filter(c => visitMap[c.id]?.status === 'completed').length;
+  const partialCount = clients.filter(c => visitMap[c.id]?.status === 'partial').length;
   const progress = totalClients ? Math.round((visitedCount / totalClients) * 100) : 0;
 
   // Close picker on outside click
@@ -101,22 +102,41 @@ export default function DayChecklist({ date, routeId, routeColor }) {
     };
   }, [pickerFor]);
 
-  function handleCheckClick(clientId) {
-    const existingDate = visitMap[clientId];
-    if (existingDate) {
-      // Already visited — uncheck immediately
-      handleRemove(clientId, existingDate);
+  // Full visit checkbox click
+  function handleFullCheckClick(clientId) {
+    const visit = visitMap[clientId];
+    if (visit?.status === 'completed') {
+      // Already full — remove entirely
+      handleRemove(clientId, visit.date);
+    } else if (visit?.status === 'partial') {
+      // Upgrade partial -> completed (same date)
+      handleUpdateStatus(clientId, visit.date, 'completed');
     } else {
-      // Open date picker
-      setPickerFor(pickerFor === clientId ? null : clientId);
+      // No visit — open date picker for full visit
+      setPickerFor({ clientId, status: 'completed' });
     }
   }
 
-  async function handleAdd(clientId, visitDate) {
+  // Partial visit checkbox click
+  function handlePartialCheckClick(clientId) {
+    const visit = visitMap[clientId];
+    if (visit?.status === 'partial') {
+      // Already partial — remove entirely
+      handleRemove(clientId, visit.date);
+    } else if (visit?.status === 'completed') {
+      // Downgrade completed -> partial (same date)
+      handleUpdateStatus(clientId, visit.date, 'partial');
+    } else {
+      // No visit — open date picker for partial visit
+      setPickerFor({ clientId, status: 'partial' });
+    }
+  }
+
+  async function handleAdd(clientId, visitDate, status) {
     setToggling(clientId);
     setPickerFor(null);
     try {
-      await add(clientId, visitDate);
+      await add(clientId, visitDate, status);
     } catch (e) {
       console.error(e);
     }
@@ -127,6 +147,16 @@ export default function DayChecklist({ date, routeId, routeColor }) {
     setToggling(clientId);
     try {
       await remove(clientId, visitDate);
+    } catch (e) {
+      console.error(e);
+    }
+    setToggling(null);
+  }
+
+  async function handleUpdateStatus(clientId, visitDate, status) {
+    setToggling(clientId);
+    try {
+      await updateStatus(clientId, visitDate, status);
     } catch (e) {
       console.error(e);
     }
@@ -216,9 +246,16 @@ export default function DayChecklist({ date, routeId, routeColor }) {
           <span className="text-xs font-bold uppercase tracking-widest" style={{ color: 'var(--text-muted)', fontFamily: 'Sora, sans-serif' }}>
             Πρόοδος Εβδομάδας
           </span>
-          <span className="text-sm font-bold tabular-nums" style={{ color: routeColor, fontFamily: 'Sora, sans-serif' }}>
-            {visitedCount}/{totalClients}
-          </span>
+          <div className="flex items-center gap-2">
+            {partialCount > 0 && (
+              <span className="text-[11px] font-bold tabular-nums px-1.5 py-0.5 rounded" style={{ color: 'var(--warning, #F59E0B)', background: 'rgba(245,158,11,0.1)', fontFamily: 'Sora, sans-serif' }}>
+                {partialCount} εκκρεμεί
+              </span>
+            )}
+            <span className="text-sm font-bold tabular-nums" style={{ color: routeColor, fontFamily: 'Sora, sans-serif' }}>
+              {visitedCount}/{totalClients}
+            </span>
+          </div>
         </div>
         <div className="progress-track">
           <div className="progress-fill" style={{ width: `${progress}%`, background: routeColor }} />
@@ -260,10 +297,12 @@ export default function DayChecklist({ date, routeId, routeColor }) {
           </h4>
           <div className="space-y-1.5">
             {cityClients.map(client => {
-              const visitDate = visitMap[client.id];
-              const isVisited = !!visitDate;
+              const visit = visitMap[client.id];
+              const isCompleted = visit?.status === 'completed';
+              const isPartial = visit?.status === 'partial';
+              const hasVisit = !!visit;
               const isToggling = toggling === client.id;
-              const showPicker = pickerFor === client.id;
+              const showPicker = pickerFor?.clientId === client.id;
 
               return (
                 <div key={client.id}>
@@ -271,32 +310,67 @@ export default function DayChecklist({ date, routeId, routeColor }) {
                     className="card relative flex items-center gap-3 p-3.5 pl-5 transition-all"
                     style={{
                       opacity: isToggling ? 0.6 : 1,
-                      background: isVisited ? `${routeColor}08` : 'var(--bg-card)',
+                      background: isCompleted
+                        ? `${routeColor}08`
+                        : isPartial
+                          ? 'rgba(245,158,11,0.04)'
+                          : 'var(--bg-card)',
                     }}
                   >
-                    <div className="route-strip" style={{ background: routeColor, opacity: isVisited ? 1 : 0.2 }} />
+                    <div
+                      className="route-strip"
+                      style={{
+                        background: isPartial ? 'var(--warning, #F59E0B)' : routeColor,
+                        opacity: hasVisit ? 1 : 0.2,
+                      }}
+                    />
 
-                    {/* Check button */}
-                    <button
-                      onClick={() => handleCheckClick(client.id)}
-                      disabled={isToggling}
-                      className="visit-check"
-                      style={isVisited ? { borderColor: routeColor, background: routeColor } : {}}
-                    >
-                      {isVisited && (
-                        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="#fff" strokeWidth="3">
-                          <polyline points="20 6 9 17 4 12" />
-                        </svg>
-                      )}
-                    </button>
+                    {/* Two checkboxes stacked */}
+                    <div className="flex flex-col gap-1.5 flex-shrink-0">
+                      {/* Full visit checkbox */}
+                      <button
+                        onClick={() => handleFullCheckClick(client.id)}
+                        disabled={isToggling}
+                        className="visit-check"
+                        style={isCompleted ? { borderColor: routeColor, background: routeColor } : {}}
+                        title="Ολοκληρωμένη επίσκεψη"
+                      >
+                        {isCompleted && (
+                          <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="#fff" strokeWidth="3">
+                            <polyline points="20 6 9 17 4 12" />
+                          </svg>
+                        )}
+                      </button>
+
+                      {/* Partial/soft visit checkbox */}
+                      <button
+                        onClick={() => handlePartialCheckClick(client.id)}
+                        disabled={isToggling}
+                        className="flex items-center justify-center rounded-md border-2 transition-all"
+                        style={{
+                          width: '24px',
+                          height: '24px',
+                          borderColor: isPartial ? 'var(--warning, #F59E0B)' : 'var(--border)',
+                          background: isPartial ? 'var(--warning, #F59E0B)' : 'transparent',
+                          borderStyle: isPartial ? 'solid' : 'dashed',
+                        }}
+                        title="Μερική επίσκεψη — χρειάζεται επανέλεγχος"
+                      >
+                        {isPartial && (
+                          <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="#fff" strokeWidth="3">
+                            <line x1="5" y1="12" x2="19" y2="12" />
+                          </svg>
+                        )}
+                      </button>
+                    </div>
 
                     {/* Client info */}
                     <Link href={`/clients/${client.id}`} className="flex-1 min-w-0">
                       <p
                         className="text-sm font-semibold truncate"
                         style={{
-                          textDecoration: isVisited ? 'line-through' : 'none',
-                          color: isVisited ? 'var(--text-muted)' : 'var(--text-primary)',
+                          textDecoration: isCompleted ? 'line-through' : 'none',
+                          color: isCompleted ? 'var(--text-muted)' : 'var(--text-primary)',
                         }}
                       >
                         {client.name}
@@ -304,19 +378,24 @@ export default function DayChecklist({ date, routeId, routeColor }) {
                       <p className="text-xs truncate" style={{ color: 'var(--text-muted)' }}>
                         {client.address || client.city}
                       </p>
-                      {/* Show visit date when visited this week */}
-                      {isVisited && (
+                      {/* Show visit date + status */}
+                      {isCompleted && (
                         <p className="text-[11px] font-bold mt-0.5" style={{ color: routeColor }}>
-                          {formatVisitDate(visitDate)}
+                          {formatVisitDate(visit.date)}
+                        </p>
+                      )}
+                      {isPartial && (
+                        <p className="text-[11px] font-bold mt-0.5" style={{ color: 'var(--warning, #F59E0B)' }}>
+                          {formatVisitDate(visit.date)} — εκκρεμεί
                         </p>
                       )}
                       {/* Show last visit from previous cycle if not visited this week */}
-                      {!isVisited && lastVisitMap[client.id] && (
+                      {!hasVisit && lastVisitMap[client.id] && (
                         <p className="text-[11px] mt-0.5" style={{ color: 'var(--text-muted)' }}>
                           Τελ. επίσκεψη: {formatShortDate(lastVisitMap[client.id])}
                         </p>
                       )}
-                      {client.notes && !isVisited && (
+                      {client.notes && !isCompleted && (
                         <p
                           className="text-[11px] font-semibold mt-1 truncate"
                           style={{ color: 'var(--warning)' }}
@@ -356,29 +435,30 @@ export default function DayChecklist({ date, routeId, routeColor }) {
 
                   {/* Date picker - slides down below the card */}
                   {showPicker && (
-                    <div ref={pickerRef} className="card p-3 mt-1 animate-fade-up" style={{ border: `1px solid ${routeColor}40` }}>
+                    <div ref={pickerRef} className="card p-3 mt-1 animate-fade-up" style={{ border: `1px solid ${pickerFor.status === 'partial' ? 'var(--warning, #F59E0B)' : routeColor}40` }}>
                       <p className="text-[11px] font-bold uppercase tracking-widest mb-2 text-center" style={{ color: 'var(--text-muted)', fontFamily: 'Sora, sans-serif' }}>
-                        Ημερομηνία επίσκεψης
+                        {pickerFor.status === 'partial' ? 'Μερική επίσκεψη — ημερομηνία' : 'Ημερομηνία επίσκεψης'}
                       </p>
                       <div className="grid grid-cols-7 gap-1.5">
                         {weekDays.map((dayDate, i) => {
                           const d = new Date(dayDate + 'T00:00:00');
                           const isToday = dayDate === today;
+                          const pickerColor = pickerFor.status === 'partial' ? 'var(--warning, #F59E0B)' : routeColor;
                           return (
                             <button
                               key={dayDate}
                               type="button"
-                              onClick={() => handleAdd(client.id, dayDate)}
+                              onClick={() => handleAdd(client.id, dayDate, pickerFor.status)}
                               className="flex flex-col items-center py-2 px-1 rounded-xl transition-all active:scale-90"
                               style={{
-                                background: isToday ? `${routeColor}15` : 'var(--bg-secondary)',
-                                border: isToday ? `2px solid ${routeColor}` : '2px solid transparent',
+                                background: isToday ? `${pickerColor}15` : 'var(--bg-secondary)',
+                                border: isToday ? `2px solid ${pickerColor}` : '2px solid transparent',
                               }}
                             >
                               <span className="text-[10px] font-bold uppercase" style={{ color: 'var(--text-muted)', fontFamily: 'Sora, sans-serif' }}>
                                 {DAYS_SHORT[i]}
                               </span>
-                              <span className="text-sm font-bold mt-0.5" style={{ color: isToday ? routeColor : 'var(--text-primary)' }}>
+                              <span className="text-sm font-bold mt-0.5" style={{ color: isToday ? pickerColor : 'var(--text-primary)' }}>
                                 {d.getDate()}
                               </span>
                             </button>

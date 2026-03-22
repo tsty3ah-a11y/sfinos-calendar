@@ -1,6 +1,6 @@
 'use client';
 import { useState, useEffect, useCallback } from 'react';
-import { getVisits, getVisitsForDate, getVisitsForWeek, addVisit, removeVisit, toggleVisit } from '@/lib/queries';
+import { getVisits, getVisitsForDate, getVisitsForWeek, addVisit, removeVisit, toggleVisit, updateVisitStatus } from '@/lib/queries';
 
 export function useVisitsForDate(date) {
   const [visits, setVisits] = useState([]);
@@ -41,8 +41,8 @@ export function useVisitsForWeek(monday) {
 
   useEffect(() => { refresh(); }, [refresh]);
 
-  const add = useCallback(async (clientId, date) => {
-    await addVisit(clientId, date);
+  const add = useCallback(async (clientId, date, status = 'completed') => {
+    await addVisit(clientId, date, status);
     refresh();
   }, [refresh]);
 
@@ -51,7 +51,12 @@ export function useVisitsForWeek(monday) {
     refresh();
   }, [refresh]);
 
-  return { visits, loading, add, remove, refresh };
+  const updateStatus = useCallback(async (clientId, date, status) => {
+    await updateVisitStatus(clientId, date, status);
+    refresh();
+  }, [refresh]);
+
+  return { visits, loading, add, remove, updateStatus, refresh };
 }
 
 export function useClientVisits(clientId) {
