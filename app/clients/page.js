@@ -3,11 +3,13 @@ import { useState } from 'react';
 import { useRouter } from 'next/navigation';
 import ClientList from '@/components/clients/ClientList';
 import ClientForm from '@/components/clients/ClientForm';
+import ExportModal from '@/components/clients/ExportModal';
 import { createClient } from '@/lib/queries';
 
 export default function ClientsPage() {
   const router = useRouter();
   const [showAdd, setShowAdd] = useState(false);
+  const [showExport, setShowExport] = useState(false);
   const [saving, setSaving] = useState(false);
 
   async function handleCreate(form) {
@@ -38,16 +40,30 @@ export default function ClientsPage() {
           Πελάτες
         </h1>
         {!showAdd && (
-          <button
-            onClick={() => setShowAdd(true)}
-            className="flex items-center gap-1.5 px-4 py-2.5 rounded-xl text-sm font-bold active:scale-95 transition-all"
-            style={{ background: 'var(--accent)', color: '#fff' }}
-          >
-            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5">
-              <line x1="12" y1="5" x2="12" y2="19" /><line x1="5" y1="12" x2="19" y2="12" />
-            </svg>
-            Νέος
-          </button>
+          <div className="flex items-center gap-2">
+            <button
+              onClick={() => setShowExport(true)}
+              className="flex items-center justify-center w-10 h-10 rounded-xl active:scale-95 transition-all"
+              style={{ background: 'var(--bg-secondary)' }}
+              title="Εξαγωγή"
+            >
+              <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="var(--text-secondary)" strokeWidth="2">
+                <path d="M21 15v4a2 2 0 01-2 2H5a2 2 0 01-2-2v-4" />
+                <polyline points="7 10 12 15 17 10" />
+                <line x1="12" y1="15" x2="12" y2="3" />
+              </svg>
+            </button>
+            <button
+              onClick={() => setShowAdd(true)}
+              className="flex items-center gap-1.5 px-4 py-2.5 rounded-xl text-sm font-bold active:scale-95 transition-all"
+              style={{ background: 'var(--accent)', color: '#fff' }}
+            >
+              <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5">
+                <line x1="12" y1="5" x2="12" y2="19" /><line x1="5" y1="12" x2="19" y2="12" />
+              </svg>
+              Νέος
+            </button>
+          </div>
         )}
       </div>
 
@@ -65,6 +81,8 @@ export default function ClientsPage() {
       )}
 
       <ClientList />
+
+      {showExport && <ExportModal onClose={() => setShowExport(false)} />}
     </div>
   );
 }
